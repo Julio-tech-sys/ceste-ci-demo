@@ -2,95 +2,84 @@ pipeline {
     agent any
 
     parameters {
-        string(
-            name: 'APP_VERSION',
-            defaultValue: 'latest',
-            description: 'Tag/versión de la imagen Docker'
-        )
-        booleanParam(
-            name: 'DO_BUILD',
-            defaultValue: true,
-            description: '¿Construir la imagen Docker?'
-        )
-        booleanParam(
-            name: 'DO_PUSH',
-            defaultValue: true,
-            description: '¿Hacer push a DockerHub?'
-        )
+        string(name: 'APP_VERSION', defaultValue: 'latest', description: 'Tag de la imagen Docker')
+        booleanParam(name: 'DO_PUSH', defaultValue: false, description: 'Publicar imagen en DockerHub')
     }
 
     environment {
-        DOCKERHUB_USER = 'pruebasceste'
-        IMAGE_NAME     = 'ceste-ci-demo'
-        SONAR_HOST_URL = 'http://localhost:9000'
-        SONAR_TOKEN = 'squ_793bfd47480402ffb4a9e13e2a06bb6ea828a421'
+        DOCKERHUB_USER = 'juliotechsys'
+        IMAGE_NAME = 'ceste-ci-demo'
+        FULL_IMAGE = "${juliotechsys}/${IMAGE_NAME}:${params.APP_VERSION}"
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Install & Tests (npm)') {
+        stage('Install dependencies') {
             steps {
-                // Instalación de dependencias y ejecución de tests
                 bat 'npm install'
+            }
+        }
+
+        stage('Tests') {
+            steps {
                 bat 'npm test'
             }
         }
 
-        stage('Build app') {
+        stage('Build application') {
             steps {
-                // Generar la carpeta dist/ con el “build” del proyecto
                 bat 'npm run build'
-
-                // Archivar dist/ como artefacto en Jenkins (opcional)
-                archiveArtifacts artifacts: 'dist/**', fingerprint: true
+                archiveArtifacts artifacts: 'dist/**', allowEmptyArchive: true
             }
         }
 
-        stage('SonarQube / Quality') {
+        stage('SonarQube analysis') {
             steps {
-                bat """
-                    sonar-scanner ^
-                      -Dsonar.projectKey=ceste-ci-demo ^
-                      -Dsonar.sources=. ^
-                      -Dsonar.host.url=http://localhost:9000
-                """
+                script {
+                    def scannerHome = tool 'SonarScanner'
+                    withSonarQubeEnv('SonarQube') {
+                        bat "${scannerHome}\\bin\\sonar-scanner.bat"
+                    }
+                }
             }
         }
 
-        stage('Build Docker') {
+        stage('Docker build') {
+            steps {
+                bat 'docker build -t %FULL_IMAGE% .'
+            }
+        }
+
+        stage('Trivy image scan') {
+            steps {
+                bat 'if not exist reports mkdir reports'
+                bat 'trivy image --severity HIGH,CRITICAL --format table --output reports\\trivy-report.txt %FULL_IMAGE%'
+                archiveArtifacts artifacts: 'reports/trivy-report.txt', allowEmptyArchive: true
+                bat 'type reports\\trivy-report.txt'
+            }
+        }
+
+        stage('DockerHub push') {
             when {
-                expression { params.DO_BUILD }
+                expression { return params.DO_PUSH }
             }
             steps {
-                bat """
-                    docker build -t %DOCKERHUB_USER%/%IMAGE_NAME%:%APP_VERSION% .
-                """
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
+                    bat 'docker push %FULL_IMAGE%'
+                }
             }
         }
+    }
 
-        stage('Trivy Scan') {
-            steps {
-                // Escaneo de la imagen recién construida
-                bat "trivy image --severity HIGH,CRITICAL --exit-code 1 %DOCKERHUB_USER%/%IMAGE_NAME%:%APP_VERSION%"
-            }
-        }
-
-        stage('Push DockerHub') {
-            when {
-                expression { params.DO_PUSH }
-            }
-            steps {
-                bat """
-                    docker login -u %DOCKERHUB_USER% -p %DOCKERHUB_TOKEN%
-                    docker push %DOCKERHUB_USER%/%IMAGE_NAME%:%APP_VERSION%
-                """
-            }
+    post {
+        always {
+            bat 'docker logout || exit /b 0'
         }
     }
 }
