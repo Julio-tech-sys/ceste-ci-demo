@@ -9,7 +9,7 @@ pipeline {
     environment {
         DOCKERHUB_USER = 'juliotechsys'
         IMAGE_NAME = 'ceste-ci-demo'
-        FULL_IMAGE = "${juliotechsys}/${IMAGE_NAME}:${params.APP_VERSION}"
+        FULL_IMAGE = "${DOCKERHUB_USER}/${IMAGE_NAME}:${params.APP_VERSION}"
     }
 
     stages {
