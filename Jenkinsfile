@@ -21,19 +21,19 @@ pipeline {
 
         stage('Install dependencies') {
             steps {
-                bat 'npm.cmd install'
+                bat 'npm install'
             }
         }
 
         stage('Tests') {
             steps {
-                bat 'npm.cmd test'
+                bat 'npm test'
             }
         }
 
         stage('Build application') {
             steps {
-                bat 'npm.cmd run build'
+                bat 'npm run build'
                 archiveArtifacts artifacts: 'dist/**', allowEmptyArchive: true
             }
         }
@@ -43,7 +43,7 @@ pipeline {
                 script {
                     def scannerHome = tool 'SonarScanner'
                     withSonarQubeEnv('SonarQube') {
-                        bat ""${scannerHome}\\bin\\sonar-scanner.bat""
+                        bat "\"${scannerHome}/bin/sonar-scanner.bat\""
                     }
                 }
             }
