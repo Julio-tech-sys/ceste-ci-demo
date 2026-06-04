@@ -21,19 +21,19 @@ pipeline {
 
         stage('Install dependencies') {
             steps {
-                bat 'npm install'
+                bat 'npm.cmd install'
             }
         }
 
         stage('Tests') {
             steps {
-                bat 'npm test'
+                bat 'npm.cmd test'
             }
         }
 
         stage('Build application') {
             steps {
-                bat 'npm run build'
+                bat 'npm.cmd run build'
                 archiveArtifacts artifacts: 'dist/**', allowEmptyArchive: true
             }
         }
@@ -43,7 +43,7 @@ pipeline {
                 script {
                     def scannerHome = tool 'SonarScanner'
                     withSonarQubeEnv('SonarQube') {
-                        bat "${scannerHome}\\bin\\sonar-scanner.bat"
+                        bat ""${scannerHome}\\bin\\sonar-scanner.bat""
                     }
                 }
             }
@@ -73,10 +73,11 @@ pipeline {
                     bat '''
                         docker login -u "%DOCKER_USER%" -p "%DOCKER_PASS%"
                         docker push "%FULL_IMAGE%"
-                        '''
-                 }
+                    '''
+                }
             }
         }
+    }
 
     post {
         always {
