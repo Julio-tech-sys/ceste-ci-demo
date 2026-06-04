@@ -58,7 +58,7 @@ pipeline {
         stage('Trivy image scan') {
             steps {
                 bat 'if not exist reports mkdir reports'
-                bat 'trivy image --severity HIGH,CRITICAL --format table --output reports\\trivy-report.txt %FULL_IMAGE%'
+                bat '"C:\\Users\\UFV\\AppData\\Local\\Microsoft\\WinGet\\Links\\trivy.exe" image --severity HIGH,CRITICAL --format table --output reports\\trivy-report.txt %FULL_IMAGE%'
                 archiveArtifacts artifacts: 'reports/trivy-report.txt', allowEmptyArchive: true
                 bat 'type reports\\trivy-report.txt'
             }
